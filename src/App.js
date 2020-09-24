@@ -12,8 +12,6 @@ const App = () => {
 
 	const branches = [1, 2, 3];
 
-	const total = buildTotal(products);
-
 	async function buildProducts(branches) {
 		// set products from state if populated already, else call API
 		let p = !loading ? products : await loadProductsFromApi(branches);
@@ -25,10 +23,6 @@ const App = () => {
 	useEffect(() => {
 		buildProducts(branches);
 	}, []);
-
-	useEffect(() => {
-		buildProducts(branches);
-	}, [value]);
 
 	const onClick = async (e) => {
 		e.preventDefault();
@@ -80,7 +74,6 @@ const App = () => {
 }
 
 async function loadProductsFromApi(branches) {
-	console.log('loaded from API');
 	// dynamically maps through given IDs
 	const branchData = await Promise.all(
 		branches.map(async branch => {
