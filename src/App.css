@@ -37,6 +37,23 @@ body {
 .product-list th {
   background-color: #eb008c;
 }
+.product-list th.product-title {
+  display: flex;
+  flex-wrap: wrap;
+  border-width: 0;
+}
+.product-list th.product-title:hover {
+  cursor: pointer;
+}
+.product-list th.product-title div {
+  flex: 0 50%;
+  display: block;
+  text-align: left;
+}
+.product-list th.product-title div:last-child {
+  text-align: right;
+}
+
 
 .product-list th:first-child {
   width: 300px;

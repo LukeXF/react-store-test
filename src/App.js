@@ -6,64 +6,72 @@ const formatNumber = (number) => new Intl.NumberFormat("en", { minimumFractionDi
 
 const App = () => {
 	const [value, setValue] = useState("");
-	const [total, setTotal] = useState(0);
 	const [products, setProducts] = useState([]);
 	const [loading, setLoading] = useState(true);
+	const [sortBy, setSortBy] = useState('asc');
 
 	const branches = [1, 2, 3];
 
-	async function loadProducts(branches, searchValue) {
-		const api = await Promise.all(
-			branches.map(async branch => {
-				const response = await fetch(`/api/branch${branch}.json`);
-				const { products } = await response?.json();
-				return products;
-			})
-		);
+	const total = buildTotal(products);
 
-		const p = combineProducts([...api[0], ...api[1], ...api[2]], searchValue);
-		p.sort((a, b) => a.name.localeCompare(b.name))
+	async function buildProducts(branches) {
+		// set products from state if populated already, else call API
+		let p = !loading ? products : await loadProductsFromApi(branches);
 
 		setProducts(p);
-		setTotal(buildTotal(p));
 		setLoading(false);
 	}
 
 	useEffect(() => {
-		loadProducts(branches);
+		buildProducts(branches);
 	}, []);
 
 	useEffect(() => {
-		loadProducts(branches, value);
+		buildProducts(branches);
 	}, [value]);
 
+	const onClick = async (e) => {
+		e.preventDefault();
+		await setSortBy(sortBy === 'asc' ? 'desc' : 'asc');
+	};
+
+	const filteredProducts = products.filter(
+		product => value ? product?.name?.toLowerCase().indexOf(value.toLowerCase()) !== -1 : true
+	);
+
 	return loading ? <div>Loading...</div> : (
-		<div class="product-list">
+		<div className={"product-list"}>
 			<label>
 				Search {products.length} Product{products.length > 0 ? 's' : ''}
 			</label>
-			{value}
 			<input value={value} onChange={e => setValue(e.target.value)}/>
 
 			<table>
 				<thead>
 				<tr>
-					<th>Product</th>
+					<th onClick={onClick} className={"product-title"}>
+						<div>Product</div>
+						<div>({`${sortBy}ending order`})</div>
+					</th>
 					<th>Revenue</th>
 				</tr>
 				</thead>
 				<tbody>
-				{products.map(product =>
-					<tr key={product.name}>
-						<td>{product.name}</td>
-						<td>{formatNumber(product.sold)}</td>
+				{
+					// sort filtered (by name) products by asc/desc order, then map over to display
+					filteredProducts.sort(
+					(a, b) => sortBy !== 'asc' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name)
+				).map(sortedProduct => (
+					<tr key={sortedProduct.name}>
+						<td>{sortedProduct.name}</td>
+						<td>{formatNumber(sortedProduct.sold)}</td>
 					</tr>
-				)}
+				))}
 				</tbody>
 				<tfoot>
 				<tr>
 					<td>Total</td>
-					<td>{formatNumber(total)}</td>
+					<td>{formatNumber(buildTotal(filteredProducts))}</td>
 				</tr>
 				</tfoot>
 			</table>
@@ -71,19 +79,24 @@ const App = () => {
 	);
 }
 
+async function loadProductsFromApi(branches) {
+	console.log('loaded from API');
+	// dynamically maps through given IDs
+	const branchData = await Promise.all(
+		branches.map(async branch => {
+			const response = await fetch(`/api/branch${branch}.json`);
+			const { products } = await response?.json();
+			return products;
+		})
+	);
+	// TODO: make destructure dynamic like above
+	const branchesProducts = [...branchData[0], ...branchData[1], ...branchData[2]];
 
-function buildTotal(products) {
-	console.log('buildTotal');
-	return products.reduce(function (acc, { sold, unitPrice }) {
-		return acc + (sold * unitPrice);
-	}, 0);
-}
-
-function combineProducts(BranchesProducts, searchValue) {
-	return BranchesProducts.reduce((allProducts, { id, name, unitPrice, sold }) => {
+	return branchesProducts.reduce((allProducts, { id, name, unitPrice, sold }) => {
+		// find if currently looped product already exists in allProducts
 		const existing = allProducts.filter(product => id === product.id);
-		if (searchValue && name.toLowerCase().indexOf(searchValue.toLowerCase()) === -1) return allProducts;
 
+		// if existing value is found, then add new sold amount to existing sold amount
 		if (existing?.length > 0) {
 			return allProducts.map(product => {
 				return product.id === id ? {
@@ -94,10 +107,18 @@ function combineProducts(BranchesProducts, searchValue) {
 				} : product;
 			})
 		} else {
+			// else doesn't exist, add to array
 			allProducts.push({ id, sold, name, unitPrice });
 		}
 		return allProducts;
 	}, [])
+}
+
+function buildTotal(products) {
+	// loop through all products and combine units sold by unit price
+	return products.reduce(function (acc, { sold, unitPrice }) {
+		return acc + (sold * unitPrice);
+	}, 0);
 }
 
 export default App;
